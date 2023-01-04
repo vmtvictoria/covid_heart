@@ -1,0 +1,446 @@
+# Author: Victoria Thomas (MiCOR, USUHS)
+# Source file: /Users/victoriathomas/~.csv
+# Output file: ~.csv
+# Created: 11-29-2022
+# Updated: 11-30-2022
+# Updated: 12-01-2022
+#Updated: 01-03-2023
+###########################
+
+#load packages 
+library(dplyr)
+library(tidyverse)
+
+#clear environment
+rm(list = ls())
+
+#import raw data
+covid_heart_raw <- read.csv("/Users/victoriathomas/Documents/MiCOR/COVID-Heart/Analysis/covid_heart_raw_data_2022_11_29.csv",
+                            stringsAsFactors = FALSE)
+
+#separate out events
+
+#V0
+v0 <- covid_heart_raw %>%
+  filter(redcap_event_name == "v0_arm_1")
+#V1
+v1 <- covid_heart_raw %>%
+  filter(redcap_event_name == "v1_arm_1")
+#V2 
+v2 <- covid_heart_raw %>%
+  filter(redcap_event_name == "v2_arm_1")
+
+#remove empty columns 
+v0 <- v0 %>%
+  discard(~all(is.na(.) | . ==""))
+
+v1 <- v1 %>%
+  discard(~all(is.na(.) | . ==""))
+
+v2 <- v2 %>%
+discard(~all(is.na(.) | . ==""))
+
+#as.factor requisite groups
+#group assignment
+covid_heart_raw$group_assign <- as.factor(covid_heart_raw$group_assign)
+#active duty
+#gender
+#arrythmia
+#stress echo fam
+
+
+#next time use lapply/sapply if... only values in column are 0:3, then...
+# as.factor column
+
+#use if..factor then... for other stats/purposes as well perhpas
+
+#n by group
+group_n <- covid_heart_raw %>%
+  filter(redcap_event_name == "v0_arm_1") %>%
+  group_by(group_assign) %>%
+  count(group_assign)
+
+
+
+#"practice" summarize function
+covid_heart_raw %>%
+  group_by(group_assign) %>%
+  summarise(mean(age), mean(bmi))
+
+
+#hr for those w/ completed echos
+v2_bob <- v2 %>%
+  filter(!is.na(strecho_hr))
+
+#merge V0 and V2
+merge_v1_v2 <-  merge(v0, v2_bob, by = c("record_id"))
+
+#merge "merge_v1_v2" to V1
+merge_all <- merge(v1, merge_v1_v2, by = c("record_id"))
+
+
+#overall sum stat table for group B (n=14)
+summary_stat <- merge_all %>%
+  summarise(mean(age), sd(age), min(age), max(age),
+            mean(strecho_hr), sd(strecho_hr),
+            mean(strecho_peak_hr), sd(strecho_peak_hr),
+            mean(strecho_sys_bp), sd(strecho_sys_bp),
+            mean(strecho_peak_sys_bp), sd(strechsummaryo_peak_sys_bp))
+#cant seem to get the gender count(now factor'd) included in the sum stat table,
+#seaparated out
+gender_count <- merge_all %>%
+count(gender)                # this is only for group b
+
+gender_group_b <- gender_count #rename
+rm(gender_count) #remove gender_count
+
+#clean up environment
+rm(merge_v1_v2, strecho_hr_sum, v0, v1, v2, v2_bob)
+
+#group B age
+age_group_b <- merge_all %>%
+  summarise(Mean = mean(age), SD = sd(age), Min = min(age), Max = max(age))
+
+#"merge_all" is only for group B, recreate table
+#separate out events
+
+#V0
+v0 <- covid_heart_raw %>%
+  filter(redcap_event_name == "v0_arm_1")
+#V1
+v1 <- covid_heart_raw %>%
+  filter(redcap_event_name == "v1_arm_1")
+#V2 
+v2 <- covid_heart_raw %>%
+  filter(redcap_event_name == "v2_arm_1")
+
+#remove empty columns 
+
+#V0
+v0 <- v0 %>%
+  discard(~all(is.na(.) | . ==""))
+#V1
+v1 <- v1 %>%
+  discard(~all(is.na(.) | . ==""))
+#V2
+v2 <- v2 %>%
+  discard(~all(is.na(.) | . ==""))
+
+#merge
+clean_data <- merge(v0,v1,v2, by = c("record_id")) #only accepts two arguments
+clean_data <- merge(v0,v1,by = c("record_id"))
+clean_data <- merge(clean_data,v2, by = c("record_id")) #null, only need v0
+                                                        #& v1 for A and C
+
+#redo merge
+clean_data <- merge(v0,v1,by = c("record_id")) # personally pref'd method
+
+#age (inclusive of participant 6 - the drop-out - and exclusive of the participant
+#who hasn't had echo data entered yet - 21?)
+age <- clean_data %>%
+  group_by(group_assign) %>%
+  summarise(Mean = mean(age),StDev = sd(age), Min = min(age), Max = max(age))
+
+
+#active duty count
+active_d <- clean_data %>%
+  group_by(group_assign) %>%
+  count(active_d)
+
+#sub 0 and 1 w/ "no" and "yes"
+active_d$active_d[active_d$active_d == 0] <- "No"
+active_d$active_d[active_d$active_d == 1] <- "Yes"
+
+#or could factorize
+active_d$active_d <- factor(active_d$active_d, #personally pref'd method
+                 levels=c(0,1), 
+                 labels=c("No","Yes"))
+
+#overall sum stat table for group B (n=14), continue adding on
+summary_stat <- merge_all %>%
+  summarise(mean(age), sd(age), min(age), max(age),
+            mean(strecho_hr), sd(strecho_hr),
+            mean(strecho_peak_hr), sd(strecho_peak_hr),
+            mean(strecho_sys_bp), sd(strecho_sys_bp),
+            mean(strecho_peak_sys_bp), sd(strecho_peak_sys_bp))
+
+#while attempting to eleborate on the group b stats, realized there's an
+#indeterminate value for stopping time
+merge_all$record_id[merge_all$strecho_stress_stop == "6:00/7:00"] #record 19
+
+#save group B data
+write.csv(merge_all, "/Users/victoriathomas/Documents/MiCOR/COVID-Heart/Analysis/Group B/group_b_clean.csv")
+
+#convert missing crp data value to NA 
+merge_all$v1_crp[merge_all$v1_crp == "-666"] <- NA
+merge_all$v1_crp #sorted
+
+#continuing - add lab values minus troponin and d-dimer (need to know how to
+#handle x<y values for these)
+summary_stat <- merge_all %>%
+  summarise(mean(age), sd(age), min(age), max(age),
+            mean(strecho_hr), sd(strecho_hr),
+            mean(strecho_peak_hr), sd(strecho_peak_hr),
+            mean(strecho_sys_bp), sd(strecho_sys_bp),
+            mean(strecho_peak_sys_bp), sd(strecho_peak_sys_bp),
+            mean(v1_bnp), sd(v1_bnp),
+            mean(!is.na(v1_crp)), sd(!is.na(v1_crp)),
+            mean(days_index_hosp), sd(days_index_hosp))
+
+#TO DO
+#group A and C - lab values, icu stay, days in hosp, discharge dxs,
+#days from dispo to v0 (convert dates to numbers then subtract)
+
+#Days from dispo to V0 - group B
+#convert dates from character > date > numeric
+merge_all$discharge_date <- as.Date(merge_all$discharge_date) #dispo date
+merge_all$discharge_date <- as.numeric(merge_all$discharge_date)
+
+merge_all$v0_date <- as.Date(merge_all$v0_date) #V0 date
+merge_all$v0_date <- as.numeric(merge_all$v0_date)
+
+#create delta column using mutate
+merge_all <- merge_all %>%
+  mutate(dispo_v0_delta = v0_date - discharge_date)
+
+#change mets value w/ with characters
+merge_all$strecho_stress_stop_mets[merge_all$strecho_stress_stop_mets == "10.1 METS"] <- 10.1
+#change missing data code to NA
+merge_all$strecho_stress_stop_mets[merge_all$strecho_stress_stop_mets == -666] <- NA
+#change to METS to numeric
+merge_all$strecho_stress_stop_mets <- as.numeric(merge_all$strecho_stress_stop_mets) 
+
+
+summary_stat <- merge_all %>%
+  summarise(mean(age), sd(age), min(age), max(age),
+            mean(bmi), sd(bmi), min(bmi), max(bmi),
+            mean(strecho_hr), sd(strecho_hr),min(strecho_hr), max(strecho_hr), # rest hr
+            mean(strecho_peak_hr), sd(strecho_peak_hr), min(strecho_peak_hr), max(strecho_peak_hr), #stress hr
+            mean(strecho_sys_bp), sd(strecho_sys_bp), min(strecho_sys_bp), max(strecho_sys_bp), #rest bp
+            mean(!is.na(strecho_stress_stop_met)),sd(!is.na(strecho_stress_stop_met)), #mets
+            min(!is.na(strecho_stress_stop_met)),max(!is.na(strecho_stress_stop_met)), 
+            mean(strecho_peak_sys_bp), sd(strecho_peak_sys_bp),min(strecho_peak_sys_bp), max(strecho_peak_sys_bp), #stress bp
+            mean(v1_bnp), sd(v1_bnp), min(v1_bnp), max(v1_bnp), #bnp
+            mean(!is.na(v1_crp)), sd(!is.na(v1_crp)),min(!is.na(v1_crp)), max(!is.na(v1_crp)), #crp
+            mean(days_index_hosp), sd(days_index_hosp),min(days_index_hosp), max(days_index_hosp), #hospitalization days
+            mean(dispo_v0_delta), sd(dispo_v0_delta), min(dispo_v0_delta), max(dispo_v0_delta)) #hospitalization > v0 delta
+
+#still having issues with the met summary stats
+merge_all$record_id[is.na(merge_all$strecho_stress_stop_mets)]
+#records 3, 5, 19, 21 have NA values
+
+merge_all %>%
+  select(strecho_stress_stop,strecho_stress_stop_mets, record_id)
+
+#replace NAs with values where possible
+merge_all$strecho_stress_stop_mets[merge_all$record_id == "3"] <- 8.80
+merge_all$strecho_stress_stop_mets[merge_all$strecho_stress_stop_mets == "21"] <- 11.0 #this is 
+
+#still getting incorrect mets sum stats
+summary_stat <- merge_all %>%
+  summarise(mean(age), sd(age), min(age), max(age),
+            mean(bmi), sd(bmi), min(bmi), max(bmi),
+            mean(strecho_hr), sd(strecho_hr), min(strecho_hr), max(strecho_hr), # rest hr
+            mean(strecho_peak_hr), sd(strecho_peak_hr), min(strecho_peak_hr), max(strecho_peak_hr), #stress hr
+            mean(strecho_sys_bp), sd(strecho_sys_bp), min(strecho_sys_bp), max(strecho_sys_bp), #rest bp
+            mean(!is.na(strecho_stress_stop_mets)),sd(!is.na(strecho_stress_stop_mets)), #mets
+            min(!is.na(strecho_stress_stop_mets)),max(!is.na(strecho_stress_stop_mets)), 
+            mean(strecho_peak_sys_bp), sd(strecho_peak_sys_bp),min(strecho_peak_sys_bp), max(strecho_peak_sys_bp), #stress bp
+            mean(v1_bnp), sd(v1_bnp), min(v1_bnp), max(v1_bnp), #bnp
+            mean(!is.na(v1_crp)), sd(!is.na(v1_crp)),min(!is.na(v1_crp)),max(!is.na(v1_crp)), #crp
+            mean(days_index_hosp), sd(days_index_hosp),min(days_index_hosp), max(days_index_hosp), #hospitalization days
+            mean(dispo_v0_delta), sd(dispo_v0_delta), min(dispo_v0_delta), max(dispo_v0_delta)) #hospitalization > v0 delta
+
+#this was the problem? perhpas?
+merge_all$strecho_stress_stop_mets[merge_all$record_id == "21"] <- 11.0 #nope
+
+#fixed it! can't use "!is.na()" to remove NA values, use ", rm.na = TRUE"
+summary_stat <- merge_all %>%
+  summarise(mean(age), sd(age), min(age), max(age),
+            mean(bmi), sd(bmi), min(bmi), max(bmi),
+            mean(strecho_hr), sd(strecho_hr), min(strecho_hr), max(strecho_hr), # rest hr
+            mean(strecho_peak_hr), sd(strecho_peak_hr), min(strecho_peak_hr), max(strecho_peak_hr), #stress hr
+            mean(strecho_sys_bp), sd(strecho_sys_bp), min(strecho_sys_bp), max(strecho_sys_bp), #rest bp
+            mean(strecho_stress_stop_mets, na.rm=TRUE),sd(strecho_stress_stop_mets,na.rm=TRUE), #mets
+            min(strecho_stress_stop_mets,na.rm=TRUE),max(strecho_stress_stop_metsna.rm=TRUE), 
+            mean(strecho_peak_sys_bp), sd(strecho_peak_sys_bp),min(strecho_peak_sys_bp), max(strecho_peak_sys_bp), #stress bp
+            mean(v1_bnp), sd(v1_bnp), min(v1_bnp), max(v1_bnp), #bnp
+            mean(v1_crp,na.rm=TRUE), sd(v1_crp,na.rm=TRUE),min(v1_crp, na.rm = TRUE),max(v1_crp, na.rm = TRUE), #crp
+            mean(days_index_hosp), sd(days_index_hosp),min(days_index_hosp), max(days_index_hosp), #hospitalization days
+            mean(dispo_v0_delta), sd(dispo_v0_delta), min(dispo_v0_delta), max(dispo_v0_delta)) #hospitalization > v0 delta
+
+#adding on other delta values w/ mutate
+merge_all<- merge_all %>%
+  mutate(hr_delta = strecho_peak_hr - strecho_hr,
+         spb_delta = strecho_peak_sys_bp - strecho_sys_bp,
+         lvef_delta = strecho_lvsys_lvef - strecho_rest_lvef)
+
+#adding on the sum stats
+summary_stat <- merge_all %>%
+  summarise(mean(age), sd(age), min(age), max(age),#age
+            mean(bmi), sd(bmi), min(bmi), max(bmi),#bmi
+            mean(strecho_hr), sd(strecho_hr), min(strecho_hr), max(strecho_hr), # rest hr
+            mean(strecho_peak_hr), sd(strecho_peak_hr), min(strecho_peak_hr), max(strecho_peak_hr), #stress hr
+            mean(strecho_sys_bp), sd(strecho_sys_bp), min(strecho_sys_bp), max(strecho_sys_bp), #rest bp
+            mean(strecho_peak_sys_bp), sd(strecho_peak_sys_bp),min(strecho_peak_sys_bp), max(strecho_peak_sys_bp), #stress bp
+            mean(strecho_rest_lvef), sd(strecho_rest_lvef), min(strecho_rest_lvef), max(strecho_rest_lvef), #rest lvef
+            mean(strecho_lvsys_lvef), sd(strecho_lvsys_lvef), min(strecho_lvsys_lvef), max(strecho_lvsys_lvef), #stress lvef
+            mean(strecho_stress_stop_mets, na.rm=TRUE),sd(strecho_stress_stop_mets,na.rm=TRUE), #mets
+            min(strecho_stress_stop_mets,na.rm=TRUE),max(strecho_stress_stop_mets,na.rm=TRUE), 
+            mean(v1_bnp), sd(v1_bnp), min(v1_bnp), max(v1_bnp), #bnp
+            mean(v1_crp,na.rm=TRUE), sd(v1_crp,na.rm=TRUE),min(v1_crp, na.rm = TRUE),max(v1_crp, na.rm = TRUE), #crp
+            mean(days_index_hosp), sd(days_index_hosp),min(days_index_hosp), max(days_index_hosp), #hospitalization days
+            mean(dispo_v0_delta), sd(dispo_v0_delta), min(dispo_v0_delta), max(dispo_v0_delta), #hospitalization -> v0 delta
+            mean(hr_delta), sd(hr_delta), min(hr_delta), max(hr_delta), #hr delta
+            mean(spb_delta), sd(spb_delta), min(spb_delta), max(spb_delta), #sbp
+            mean(lvef_delta), sd(lvef_delta), min(lvef_delta), max(lvef_delta)) #lvef delta
+
+clean_data$bmi <- as.numeric(clean_data$bmi)
+
+clean_data$gender <- as.factor(clean_data$gender)
+
+clean_data %>%
+  group_by(group_assign)%>%
+  count(gender)
+
+bmi <- clean_data %>%
+group_by(group_assign)%>%
+  summarise(mean(bmi))
+
+#factorize groups
+clean_data$group_assign <- factor(clean_data$group_assign,
+                            levels=c(1,2,3), 
+                            labels=c("A","B","C"))
+
+#Days from dispo to V0 - groups A and C
+#convert dates from character > date > numeric
+clean_data$discharge_date <- as.Date(clean_data$discharge_date) #dispo date
+clean_data$discharge_date <- as.numeric(clean_data$discharge_date)
+
+clean_data$v0_date <- as.Date(clean_data$v0_date) #V0 date
+clean_data$v0_date <- as.numeric(clean_data$v0_date)
+
+#create delta columns using mutate - clean_data
+clean_data <- clean_data %>%
+  mutate(dispo_v0_delta = v0_date - discharge_date)
+
+
+#re-run everything for all groups
+clean_data %>%
+group_by(group_assign) %>%
+summarise(mean(age, rm.na=TRUE), sd(age, rm.na=TRUE), min(age, rm.na=TRUE), max(age, rm.na=TRUE),#age
+          mean(bmi), sd(bmi), min(bmi), max(bmi),#bmi
+          mean(strecho_hr), sd(strecho_hr), min(strecho_hr), max(strecho_hr), # rest hr
+          mean(strecho_peak_hr), sd(strecho_peak_hr), min(strecho_peak_hr), max(strecho_peak_hr), #stress hr
+          mean(strecho_sys_bp), sd(strecho_sys_bp), min(strecho_sys_bp), max(strecho_sys_bp), #rest bp
+          mean(strecho_peak_sys_bp), sd(strecho_peak_sys_bp),min(strecho_peak_sys_bp), max(strecho_peak_sys_bp), #stress bp
+          mean(strecho_stress_stop_mets, na.rm=TRUE),sd(strecho_stress_stop_mets,na.rm=TRUE), #mets
+          min(strecho_stress_stop_mets,na.rm=TRUE),max(strecho_stress_stop_metsna.rm=TRUE), 
+          mean(v1_bnp), sd(v1_bnp), min(v1_bnp), max(v1_bnp), #bnp
+          mean(v1_crp,na.rm=TRUE), sd(v1_crp,na.rm=TRUE),min(v1_crp, na.rm = TRUE),max(v1_crp, na.rm = TRUE), #crp
+          mean(days_index_hosp), sd(days_index_hosp),min(days_index_hosp), max(days_index_hosp), #hospitalization days
+          mean(dispo_v0_delta), sd(dispo_v0_delta), min(dispo_v0_delta), max(dispo_v0_delta), #hospitalization -> v0 delta
+          mean(hr_delta, rm.na=TRUE), sd(hr_delta, rm.na=TRUE), min(hr_delta, rm.na=TRUE), max(hr_delta, rm.na=TRUE), #hr delta
+          mean(spb_delta), sd(spb_delta), min(spb_delta), max(spb_delta), #spd delta
+          mean(lvef_delta, rm.na=TRUE), sd(lvef_delta, rm.na=TRUE), min(lvef_delta, rm.na=TRUE), max(lvef_delta, rm.na=TRUE)) #lvef delta
+#getting all sorts of errors
+
+clean_data %>%
+group_by(group_assign) %>%
+  summarise(mean(age), sd(age), min(age), max(age)) #works when removing rm.na = TRUE
+
+#all values for all groups
+tibble_clean_data <- clean_data %>%
+  group_by(group_assign) %>%
+  summarise(mean(age), sd(age), min(age), max(age),#age
+            mean(bmi), sd(bmi), min(bmi), max(bmi),#bmi
+            mean(v1_bnp), sd(v1_bnp), min(v1_bnp), max(v1_bnp), #bnp
+            mean(v1_crp,na.rm=TRUE), sd(v1_crp,na.rm=TRUE),min(v1_crp, na.rm = TRUE),max(v1_crp, na.rm = TRUE), #crp
+            mean(days_index_hosp), sd(days_index_hosp),min(days_index_hosp), max(days_index_hosp), #hospitalization days
+            mean(dispo_v0_delta), sd(dispo_v0_delta), min(dispo_v0_delta), max(dispo_v0_delta)) #hospitalization -> v0 delta
+
+#icu - A and C
+icu <- clean_data %>%
+  group_by(group_assign) %>%
+  count(v1_clinview_icu)
+#icu - B
+icu_v <- merge_all %>%
+  count(v1_clinview_icu)
+
+#discharge dx 
+clean_data %>%
+  filter(group_assign == "A") %>%
+  select(discharge_dx)
+
+#discharge dx 
+clean_data %>%
+  filter(group_assign == "C") %>%
+  select(discharge_dx)
+
+min(merge_all$strecho_stress_stop_mets, na.rm=TRUE)
+max(merge_all$strecho_stress_stop_mets, na.rm=TRUE)
+mean(merge_all$strecho_stress_stop_mets, na.rm=TRUE)
+sd(merge_all$strecho_stress_stop_mets, na.rm=TRUE)
+#select_if deprecated, learn how to use across
+#cannot reference grouped data w/ n()
+
+#something wonky going on with dispo deltas for group A
+clean_data %>%
+  filter(group_assign == "A") %>%
+  select(discharge_date, v0_date)
+#second record has a negative value
+#ergo it's a missing date code - July 4, 1776
+
+
+#what degree of specificity can be used (decimals places)
+#for CRP?
+clean_data %>%
+  filter(group_assign == "C") %>%
+  select(v1_crp)
+  
+#troponin values
+clean_data %>%
+  filter(group_assign == "A"| group_assign == "C") %>%
+  select(v1_trop)
+
+#looks like not everybodyyy has <6 troponin, who?
+clean_data$record_id[clean_data$v1_trop == "23.7" | clean_data$v1_trop == "21.0"]
+
+#group A
+clean_data$group_assign[clean_data$record_id == 15 | clean_data$record_id == 18 ]
+
+
+merge_all %>%
+  count(active_d)
+
+#count active duty group C
+clean_data %>%
+  group_by(group_assign) %>%
+  count(active_d)
+
+#bob wants demos for alll group B subjects
+clean_data %>%
+  filter(record_id != 6 & group_assign == "B") %>%
+  summarise(mean(age), sd(age), min(age), max(age))
+
+clean_data$active_d <- factor(clean_data$active_d, 
+                            levels=c(0,1), 
+                            labels=c("No","Yes"))
+
+clean_data %>%
+  filter(record_id != 6 & group_assign == "B") %>%
+  count(active_d)
+
+clean_data %>%
+  group_by(group_assign)%>%
+  filter(record_id != 6) %>%
+  count(active_d)
+
+clean_data$gender <- factor(clean_data$gender, #personally pref'd method
+                            levels=c(1,2), 
+                            labels=c("Male","Female"))
+
+clean_data %>%
+  group_by(group_assign)%>%
+  filter(record_id != 6) %>%
+  count(gender)
